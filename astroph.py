@@ -1,3 +1,5 @@
+import re
+
 import feedparser
 import nltk
 import sys
@@ -14,10 +16,10 @@ if nltk_ver>=(3,2,2):
 	stem = PorterStemmer().stem
 else:
 	stem = PorterStemmer().word_stem
-	
 
 
-	
+
+
 import numpy as np
 import config
 
@@ -51,14 +53,25 @@ def get_authors():
 
 class article:
 
+	title_regex = re.compile('^(?P<title>.*)\. \((?P<id>arXiv:[\d.v]+) \[(?P<category>[\w\.-]+)\](?P<extra>.*)\)$')
+
 	def __init__(self, title=None, authors=None, link=None, tags=[], abstract=None, pdf=None):
-		self.title = title
+		self.process_title(title)
 		self.authors = authors
 		self.link = link
 		self.tags = tags
 		self.abstract = abstract
 		self.score = len(self.tags)
 		self.pdf = pdf
+
+	def process_title(self, title):
+		m = self.title_regex.match(title)
+		if not m:
+			self.title = title
+			self.identifier = ''
+		else:
+			self.title = m.group('title')
+			self.identifier = '{id} [{category}] {extra}'.format(**m.groupdict())
 
 	def printer(self, num):
 		abstract = self.abstract
@@ -88,7 +101,8 @@ class article:
 		ret = str.format('''
 	<div id="art#{num}" class="art {style}">
 		<div id="tag#{num}" class="tag {style}">{tags}</div>
-		<div id="title#{num}" class="title {style}"><h2><a href="{link}">{title}</a></h2></div>
+		<div id="identifier#{num}" class="identifier {style}"><a href="{link}">{self.identifier}</a></div>
+		<div id="title#{num}" class="title {style}"><h2>{title}</h2></div>
 		<div id="aut#{num}" class="auth {style}">{authors}</div>
 		<div id="abs#{num}" class="abs {style} box {toggle}" {onclick}></div>
 		<div id="absX#{num}" class="abs {style} text {toggle}">{abstract}</div>
@@ -140,7 +154,7 @@ def doit():
 	for i in range(nentries):
 		curent = zz['entries'][i]
 		ngramlist = []
-		maxNgram = 3 # maximum number of words in the phrase allowed		
+		maxNgram = 3 # maximum number of words in the phrase allowed
 		for  curtext in [curent.title, curent.summary]:
 			tokens = nltk.wordpunct_tokenize(curtext)
 			stemlowtokens = [stem(_).lower() for _ in tokens]
